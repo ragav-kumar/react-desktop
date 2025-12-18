@@ -1,4 +1,4 @@
-export type RequestEndpoint =
+export type Method =
     | 'UiReady'
     | 'GetConnectionString'
     | 'SetConnectionString'
@@ -6,15 +6,24 @@ export type RequestEndpoint =
     | 'WriteLogLine'
 ;
 
-export interface RequestMessage<T> {
-    Type: RequestEndpoint;
-    RequestId: string;
-    Payload: T;
+export interface RpcRequest<T> {
+    Id?: string | null;
+    Method: Method;
+    Params: T;
 }
 
-export interface ResponseMessage<T> {
-    RequestId: string;
-    Payload: T;
+export interface RpcError {
+    Code: number;
+    Message: string;
+    Data?: unknown;
 }
 
-export type ApiCall<TRequest, TResponse> = (args: RequestMessage<TRequest>) => Promise<ResponseMessage<TResponse>>;
+export type RpcResponse<T> = {
+    Id?: string | null;
+    Result?: null;
+    Error: RpcError;
+} | {
+    Id?: string | null;
+    Result: T;
+    Error?: null;
+}

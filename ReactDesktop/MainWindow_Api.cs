@@ -63,7 +63,7 @@ public partial class MainWindow
             return;
         }
 
-        Task.Run(() => Dispatch(message));
+        _ = Dispatch(message);
     }
 
     private async Task Dispatch(RpcRequest request)
