@@ -6,11 +6,11 @@
 /// </summary>
 public class ApiState
 {
-    private string? _connectionString;
+    public string? ConnectionString { get; set; }
 
     public ApiState(string? connectionString)
     {
-        _connectionString = connectionString;
+        ConnectionString = connectionString;
     }
     
     

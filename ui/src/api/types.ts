@@ -16,3 +16,5 @@ export interface ResponseMessage<T> {
     RequestId: string;
     Payload: T;
 }
+
+export type ApiCall<TRequest, TResponse> = (args: RequestMessage<TRequest>) => Promise<ResponseMessage<TResponse>>;

@@ -1,6 +1,6 @@
-﻿namespace ReactDesktop;
+﻿namespace ReactDesktop.Rpc;
 
-public static class MessageTypes
+public static class Methods
 {
     public const string UiReady = "UiReady";
     public const string GetConnectionString = "GetConnectionString";
