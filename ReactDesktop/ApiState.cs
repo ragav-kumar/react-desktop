@@ -6,7 +6,19 @@
 /// </summary>
 public class ApiState
 {
-    public string? ConnectionString { get; set; }
+    public string? ConnectionString
+    {
+        get
+        {
+            BusinessLogic.WriteLine($"Connection string read. Current value: \"{field}\".");
+            return field;
+        }
+        set
+        {
+            field = value;
+            BusinessLogic.WriteLine($"Connection string modified to: \"{value}\".");
+        }
+    }
 
     public ApiState(string? connectionString)
     {
