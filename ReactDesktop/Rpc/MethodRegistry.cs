@@ -1,4 +1,6 @@
-﻿namespace ReactDesktop.Rpc;
+﻿using System.Text.Json;
+
+namespace ReactDesktop.Rpc;
 
 public class MethodRegistry
 {
@@ -9,14 +11,22 @@ public class MethodRegistry
         get => _dict[name];
         set => _dict[name] = value;
     }
+
+    private static T DeserializeParams<T>(JsonElement? jsonParams)
+    {
+        if (jsonParams is null)
+            throw new JsonException("Add() with params must have non-null params.");
+        
+        return jsonParams.Value.Deserialize<T>()
+            ?? throw new JsonException("Failed to deserialize params.");
+    }
     
     public void Add<TParams, TResult>(string name, Func<TParams, CancellationToken, Task<TResult>> handler)
     {
         _dict[name] = new RpcMethod(
             typeof(TParams),
             typeof(TResult),
-            async (o, token) => await handler((TParams)o!, token)
-        );
+            async (jsonParams, token) => await handler(DeserializeParams<TParams>(jsonParams), token));
     }
     
     public void Add<TResult>(string name, Func<CancellationToken, Task<TResult>> handler)
@@ -24,7 +34,7 @@ public class MethodRegistry
         _dict[name] = new RpcMethod(
             typeof(void),
             typeof(TResult),
-            async (o, token) => await handler(token)
+            async (_, token) => await handler(token)
         );
     }
 
@@ -33,9 +43,9 @@ public class MethodRegistry
         _dict[name] = new RpcMethod(
             typeof(TParams),
             typeof(void),
-            (o, token) =>
+            (jsonParams, token) =>
             {
-                handler((TParams)o!, token);
+                handler(DeserializeParams<TParams>(jsonParams), token);
                 return Task.FromResult<object?>(null);
             }
         );

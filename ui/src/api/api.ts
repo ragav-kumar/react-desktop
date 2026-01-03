@@ -1,16 +1,26 @@
 import { rpcClient } from './rpcClient';
 import type { GetLogLinesParamsDto } from './dtos';
+import type { Method } from './types';
 
 export const Api = {
-    UiReady: (): Promise<void> => rpcClient.call('UiReady'),
+    UiReady: (): Promise<void> => callWithErrorHandling('UiReady'),
 
-    GetConnectionString: (): Promise<string> => rpcClient.call('GetConnectionString'),
-    SetConnectionString: (connectionString: string): Promise<void> => rpcClient.call('SetConnectionString', connectionString),
+    GetConnectionString: (): Promise<string> => callWithErrorHandling('GetConnectionString'),
+    SetConnectionString: (connectionString: string): Promise<void> => callWithErrorHandling('SetConnectionString', connectionString),
 
     GetLogLines: (skip: number, take: number): Promise<string[]> =>
-        rpcClient.call<GetLogLinesParamsDto, string[]>(
+        callWithErrorHandling<GetLogLinesParamsDto, string[]>(
             'GetLogLines',
             { Skip: skip, Take: take }
         ),
-    WriteLogLine: (logLine: string): Promise<void> => rpcClient.call('WriteLogLine', logLine),
+    WriteLogLine: (logLine: string): Promise<void> => callWithErrorHandling('WriteLogLine', logLine),
 } as const;
+
+const callWithErrorHandling = async <TRequest, TResponse>(method: Method, args?: TRequest): Promise<TResponse> => {
+    try {
+        return await rpcClient.call(method, args);
+    } catch (e) {
+        alert(e);
+        throw e;
+    }
+};
