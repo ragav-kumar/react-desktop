@@ -38,6 +38,7 @@ public partial class MainWindow
         
         _methods.Add(Methods.StartListeningForLogLines, StartListeningForLogLines);
         _methods.Add(Methods.StopListeningForLogLines, StopListeningForLogLines);
+        _methods.Add(Methods.IsListeningForLogLineChanges, IsListeningForLogLineChanges);
     }
 
     private void UiReady(CancellationToken _) =>
@@ -55,7 +56,7 @@ public partial class MainWindow
             PostResponse(new RpcEnvelope(
                 method: Methods.LogLinesPushNotification,
                 id: null,
-                result: JsonElement.Parse(message)
+                result: JsonSerializer.SerializeToElement(message)
             ));
         }
     }
@@ -71,7 +72,7 @@ public partial class MainWindow
             PostResponse(new RpcEnvelope(
                 method: Methods.LogLinesPushNotification,
                 id: null,
-                result: JsonElement.Parse(message)
+                result: JsonSerializer.SerializeToElement(message)
             ));
         }
     }
@@ -81,6 +82,9 @@ public partial class MainWindow
     
     private void StopListeningForLogLines(CancellationToken _) =>
         _state.IsListeningForLogLineChanges = false;
+    
+    private Task<bool> IsListeningForLogLineChanges(CancellationToken _) =>
+        Task.FromResult(_state.IsListeningForLogLineChanges);
 
     private void OnWebMessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
     {

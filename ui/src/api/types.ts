@@ -7,6 +7,7 @@ export type Method =
     | 'StartListeningForLogLines'
     | 'StopListeningForLogLines'
     | 'LogLinesPushNotification'
+    | 'IsListeningForLogLineChanges'
 ;
 
 export interface RpcRequest<T> {

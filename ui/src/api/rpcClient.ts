@@ -55,7 +55,7 @@ const createRpcClient = (): RpcClient => {
 
                 if (data.Result != null) {
                     p.resolve(data.Result);
-                } else {
+                } else if (data.Error != null) {
                     const rpcError = data.Error!;
                     p.reject(new Error(`Error ${rpcError.Code}: ${rpcError.Message}`));
                 }

@@ -9,5 +9,6 @@ public static class Methods
     public const string WriteLogLine = "WriteLogLine";
     public const string StartListeningForLogLines = "StartListeningForLogLines";
     public const string StopListeningForLogLines = "StopListeningForLogLines";
+    public const string IsListeningForLogLineChanges = "IsListeningForLogLineChanges";
     public const string LogLinesPushNotification = "LogLinesPushNotification";
 }

@@ -42,8 +42,10 @@ public static class LogFileApi
     {
         if (skip < 0)
             skip = 0;
-        if (take <= 0)
+        if (take == 0)
             return [];
+        if (take < 0)
+            take = int.MaxValue;
 
         string? exePath = Environment.ProcessPath;
         string baseDir = exePath is not null

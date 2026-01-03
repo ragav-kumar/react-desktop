@@ -16,6 +16,7 @@ export const Api = {
     WriteLogLine: (logLine: string): Promise<void> => callWithErrorHandling('WriteLogLine', logLine),
     StartListeningForLogLines: (): Promise<void> => callWithErrorHandling('StartListeningForLogLines'),
     StopListeningForLogLines: (): Promise<void> => callWithErrorHandling('StopListeningForLogLines'),
+    IsListeningForLogLineChanges: (): Promise<boolean> => callWithErrorHandling('IsListeningForLogLineChanges'),
 } as const;
 
 const callWithErrorHandling = async <TRequest, TResponse>(method: Method, args?: TRequest): Promise<TResponse> => {
@@ -23,6 +24,5 @@ const callWithErrorHandling = async <TRequest, TResponse>(method: Method, args?:
         return await rpcClient.call(method, args);
     } catch (e) {
         alert(e);
-        throw e;
     }
 };
