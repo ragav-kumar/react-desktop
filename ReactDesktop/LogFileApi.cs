@@ -2,7 +2,7 @@
 
 namespace ReactDesktop;
 
-public static class BusinessLogic
+public static class LogFileApi
 {
     private static readonly Lock logLock = new();
     

@@ -8,6 +8,11 @@ namespace ReactDesktop.Rpc;
 /// <typeparam name="T">Result type, determined by corresponding request</typeparam>
 public sealed record RpcResponse
 {
+    /// <summary>
+    /// Mandatory, allows us to support push notifications. 
+    /// </summary>
+    public string Method { get; }
+
     /// <summary>Must be the id of a received request, or null if failed to parse the id on a request.</summary>
     public Guid? Id { get; }
 
@@ -17,15 +22,17 @@ public sealed record RpcResponse
     /// <summary>If set, Result must be null.</summary>
     public RpcError? Error { get; }
 
-    public RpcResponse(Guid? id, JsonElement? result)
+    public RpcResponse(string method, Guid? id, JsonElement? result)
     {
+        Method = method;
         Id = id;
         Result = result;
         Error = null;
     }
 
-    public RpcResponse(Guid? id, RpcError? error)
+    public RpcResponse(string method, Guid? id, RpcError? error)
     {
+        Method = method;
         Id = id;
         Result = null;
         Error = error;

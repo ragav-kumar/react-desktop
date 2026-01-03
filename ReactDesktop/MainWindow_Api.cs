@@ -14,7 +14,7 @@ public partial class MainWindow
     private bool _isUiReady;
 #pragma warning restore CS0414 // Field is assigned but its value is never used
     private readonly ApiState _state;
-    private MethodRegistry _methods;
+    private readonly MethodRegistry _methods = new();
     
     private async Task InitializeApi()
     {
@@ -28,13 +28,16 @@ public partial class MainWindow
 
     private void RegisterMethods()
     {
-        _methods = new MethodRegistry();
+        _methods.Add(Methods.UiReady, UiReady);
         
-        _methods.AddNotification(Methods.UiReady, UiReady);
         _methods.Add(Methods.GetConnectionString, GetConnectionString);
-        _methods.AddNotification<string>(Methods.SetConnectionString, SetConnectionString);
+        _methods.Add<string>(Methods.SetConnectionString, SetConnectionString);
+        
         _methods.Add<GetLogLinesParamsDto, string[]>(Methods.GetLogLines, GetLogLines);
-        _methods.AddNotification<string>(Methods.WriteLogLine, WriteLogLine);
+        _methods.Add<string>(Methods.WriteLogLine, WriteLogLine);
+        
+        _methods.Add(Methods.StartListeningForLogLines, StartListeningForLogLines);
+        _methods.Add(Methods.StopListeningForLogLines, StopListeningForLogLines);
     }
 
     private void UiReady(CancellationToken _) =>
@@ -43,14 +46,41 @@ public partial class MainWindow
     private Task<string?> GetConnectionString(CancellationToken _) =>
         Task.FromResult(_state.ConnectionString);
     
-    private void SetConnectionString(string connectionString, CancellationToken _) =>
+    private void SetConnectionString(string connectionString, CancellationToken _)
+    {
         _state.ConnectionString = connectionString;
+        if (_state.IsListeningForLogLineChanges)
+        {
+            string message = LogFileApi.ReadAllLogLines().Last();
+            PostResponse(new RpcResponse(
+                method: Methods.LogLinesPushNotification,
+                id: null,
+                result: JsonElement.Parse(message)
+            ));
+        }
+    }
 
     private Task<string[]> GetLogLines(GetLogLinesParamsDto dto, CancellationToken _) =>
-        Task.FromResult(BusinessLogic.ReadLogLines(dto.Skip, dto.Take));
+        Task.FromResult(LogFileApi.ReadLogLines(dto.Skip, dto.Take));
 
-    private void WriteLogLine(string message, CancellationToken _) =>
-        BusinessLogic.WriteLine(message);
+    private void WriteLogLine(string message, CancellationToken _)
+    {
+        LogFileApi.WriteLine(message);
+        if (_state.IsListeningForLogLineChanges)
+        {
+            PostResponse(new RpcResponse(
+                method: Methods.LogLinesPushNotification,
+                id: null,
+                result: JsonElement.Parse(message)
+            ));
+        }
+    }
+
+    private void StartListeningForLogLines(CancellationToken _) =>
+        _state.IsListeningForLogLineChanges = true;
+    
+    private void StopListeningForLogLines(CancellationToken _) =>
+        _state.IsListeningForLogLineChanges = false;
 
     private void OnWebMessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
     {
@@ -71,6 +101,7 @@ public partial class MainWindow
         if (!_methods.TryGet(request.Method, out RpcMethod? method) || method is null)
         {
             await PostResponse(new RpcResponse(
+                method: request.Method,
                 id: request.Id,
                 error: new RpcError(ErrorCodes.MethodNotFound, $"Method '{request.Method}' not found.")
             ));
@@ -86,15 +117,15 @@ public partial class MainWindow
             JsonElement? jsonResult = result is null
                 ? null
                 : JsonSerializer.SerializeToElement(result, result.GetType());
-            await PostResponse(new RpcResponse(request.Id, jsonResult));
+            await PostResponse(new RpcResponse(request.Method, request.Id, jsonResult));
         }
         catch (OperationCanceledException)
         {
-            await PostResponse(new RpcResponse(request.Id, new RpcError(ErrorCodes.Cancelled, "Request cancelled.")));
+            await PostResponse(new RpcResponse(request.Method, request.Id, new RpcError(ErrorCodes.Cancelled, "Request cancelled.")));
         }
         catch (Exception ex)
         {
-            await PostResponse(new RpcResponse(request.Id, new RpcError(ErrorCodes.InternalError, ex.Message)));
+            await PostResponse(new RpcResponse(request.Method, request.Id, new RpcError(ErrorCodes.InternalError, ex.Message)));
         }
     }
 

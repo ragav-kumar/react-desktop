@@ -38,7 +38,7 @@ public class MethodRegistry
         );
     }
 
-    public void AddNotification<TParams>(string name, Action<TParams, CancellationToken> handler)
+    public void Add<TParams>(string name, Action<TParams, CancellationToken> handler)
     {
         _dict[name] = new RpcMethod(
             typeof(TParams),
@@ -51,7 +51,7 @@ public class MethodRegistry
         );
     }
 
-    public void AddNotification(string name, Action<CancellationToken> handler)
+    public void Add(string name, Action<CancellationToken> handler)
     {
         _dict[name] = new RpcMethod(
             typeof(void),

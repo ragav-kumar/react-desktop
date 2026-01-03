@@ -14,6 +14,8 @@ export const Api = {
             { Skip: skip, Take: take }
         ),
     WriteLogLine: (logLine: string): Promise<void> => callWithErrorHandling('WriteLogLine', logLine),
+    StartListeningForLogLines: (): Promise<void> => callWithErrorHandling('StartListeningForLogLines'),
+    StopListeningForLogLines: (): Promise<void> => callWithErrorHandling('StopListeningForLogLines'),
 } as const;
 
 const callWithErrorHandling = async <TRequest, TResponse>(method: Method, args?: TRequest): Promise<TResponse> => {

@@ -6,17 +6,19 @@
 /// </summary>
 public class ApiState
 {
+    public bool IsListeningForLogLineChanges { get; set; } = false;
+    
     public string? ConnectionString
     {
         get
         {
-            BusinessLogic.WriteLine($"Connection string read. Current value: \"{field}\".");
+            LogFileApi.WriteLine($"Connection string read. Current value: \"{field}\".");
             return field;
         }
         set
         {
             field = value;
-            BusinessLogic.WriteLine($"Connection string modified to: \"{value}\".");
+            LogFileApi.WriteLine($"Connection string modified to: \"{value}\".");
         }
     }
 
@@ -24,6 +26,4 @@ public class ApiState
     {
         ConnectionString = connectionString;
     }
-    
-    
 }

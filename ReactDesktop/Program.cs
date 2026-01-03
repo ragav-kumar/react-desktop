@@ -36,14 +36,14 @@ internal static class Program
     {
         if (commandParams.IsReadMode)
         {
-            foreach (string line in BusinessLogic.ReadAllLogLines())
+            foreach (string line in LogFileApi.ReadAllLogLines())
             {
                 Console.WriteLine(line);
             }
         }
         else
         {
-            BusinessLogic.WriteLine($"Ran in CLI mode with connection string: {commandParams.ConnectionString}");
+            LogFileApi.WriteLine($"Ran in CLI mode with connection string: {commandParams.ConnectionString}");
         }
         return 0;
     }
