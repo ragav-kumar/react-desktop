@@ -6,6 +6,7 @@ export type Method =
     | 'WriteLogLine'
     | 'StartListeningForLogLines'
     | 'StopListeningForLogLines'
+    | 'LogLinesPushNotification'
 ;
 
 export interface RpcRequest<T> {
@@ -31,13 +32,3 @@ export type RpcEnvelope<T> =
     | { Method: Method; Id: string; Result?: null; Error: RpcError }
     | { Method: Method; Id?: null;  Result: T;     Error?: null    }
     | { Method: Method; Id?: null;  Result?: null; Error: RpcError };
-
-export type RpcResponse<T> = {
-    Id?: string | null;
-    Result?: null;
-    Error: RpcError;
-} | {
-    Id?: string | null;
-    Result: T;
-    Error?: null;
-}

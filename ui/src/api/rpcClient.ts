@@ -1,11 +1,11 @@
 import { v4 as createGuid } from 'uuid';
-import type { Method, RpcRequest, RpcResponse } from './types';
+import type { Method, RpcRequest, RpcEnvelope } from './types';
 
 declare global {
     interface Window {
         chrome?: {
             webview?: {
-                addEventListener: (eventName: string, callback: (e: { data: RpcResponse<unknown> }) => void) => void;
+                addEventListener: (eventName: string, callback: (e: { data: RpcEnvelope<unknown> }) => void) => void;
                 postMessage: (request: RpcRequest<unknown>) => void;
             }
         }
@@ -18,14 +18,21 @@ interface Pending {
     timer: number | undefined;
 }
 
+type Unsubscribe = () => void;
+type PushHandler<TPayload> = (message: RpcEnvelope<TPayload>) => void;
+
 interface RpcClient {
+    /** For call-response semantics */
     call<TRequest, TResponse>(method: Method, args?: TRequest): Promise<TResponse>;
+    /** For push notifications. Returns an unsubscribe function. */
+    onPush<TPayload>(method: Method, handler: PushHandler<TPayload>): Unsubscribe;
 }
 
 const timeoutMilliseconds = 5000;
 
 const createRpcClient = (): RpcClient => {
-    const pending: Record<string, Pending> = {};
+    const pending: Record<string, Pending> = Object.create(null);
+    const pushHandlers: Partial<Record<Method, Set<PushHandler<unknown>>>> = Object.create(null);
     let initialized: boolean = false;
 
     const init = () => {
@@ -35,25 +42,39 @@ const createRpcClient = (): RpcClient => {
         initialized = true;
 
         window?.chrome?.webview?.addEventListener('message', ({ data }) => {
-            if (!data.Id) {
-                return;
-            }
+            const handleCorrelatedResponse = (id: string) => {
+                const p = pending[id];
+                if (!p) {
+                    return;
+                }
 
-            const p = pending[data.Id];
-            if (!p) {
-                return;
-            }
+                delete pending[id];
+                if (p.timer != null) {
+                    clearTimeout(p.timer);
+                }
 
-            delete pending[data.Id];
-            if (p.timer != null) {
-                clearTimeout(p.timer);
-            }
+                if (data.Result != null) {
+                    p.resolve(data.Result);
+                } else {
+                    const rpcError = data.Error!;
+                    p.reject(new Error(`Error ${rpcError.Code}: ${rpcError.Message}`));
+                }
+            };
 
-            if (data.Result != null) {
-                p.resolve(data.Result);
+            const handlePushNotification = () => {
+                const handlers = pushHandlers[data.Method];
+                if (handlers == null || handlers.size === 0) {
+                    return;
+                }
+                for (const handler of handlers) {
+                    handler(data);
+                }
+            };
+
+            if (data.Id != null) {
+                handleCorrelatedResponse(data.Id);
             } else {
-                const rpcError = data.Error!;
-                p.reject(new Error(`Error ${rpcError.Code}: ${rpcError.Message}`));
+                handlePushNotification();
             }
         });
     };
@@ -80,7 +101,30 @@ const createRpcClient = (): RpcClient => {
         });
     };
 
-    return { call };
+    const onPush = <TPayload>(method: Method, handler: PushHandler<TPayload>): Unsubscribe => {
+        init();
+
+        if (pushHandlers[method] == null) {
+            pushHandlers[method] = new Set();
+        }
+
+        const wrapped = handler as PushHandler<unknown>;
+        pushHandlers[method].add(wrapped);
+
+        // Return a cleanup function.
+        return () => {
+            const set = pushHandlers[method];
+            if (set == null) {
+                return;
+            }
+            set.delete(wrapped);
+            if (set.size === 0) {
+                delete pushHandlers[method];
+            }
+        };
+    };
+
+    return { call, onPush };
 };
 
 export const rpcClient = createRpcClient();

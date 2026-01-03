@@ -1,6 +1,9 @@
 import { Api } from './api';
+import { usePushNotifications } from './api/usePushNotifications';
 
 export const LogFeed = () => {
+    const { value } = usePushNotifications<string[]>('LogLinesPushNotification', []);
+
     return (
         <div>
             <div>
@@ -15,7 +18,7 @@ export const LogFeed = () => {
                 </button>
             </div>
             <pre>
-                Log feed goes here
+                {value}
             </pre>
         </div>
     );

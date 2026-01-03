@@ -52,7 +52,7 @@ public partial class MainWindow
         if (_state.IsListeningForLogLineChanges)
         {
             string message = LogFileApi.ReadAllLogLines().Last();
-            PostResponse(new RpcResponse(
+            PostResponse(new RpcEnvelope(
                 method: Methods.LogLinesPushNotification,
                 id: null,
                 result: JsonElement.Parse(message)
@@ -68,7 +68,7 @@ public partial class MainWindow
         LogFileApi.WriteLine(message);
         if (_state.IsListeningForLogLineChanges)
         {
-            PostResponse(new RpcResponse(
+            PostResponse(new RpcEnvelope(
                 method: Methods.LogLinesPushNotification,
                 id: null,
                 result: JsonElement.Parse(message)
@@ -100,7 +100,7 @@ public partial class MainWindow
     {
         if (!_methods.TryGet(request.Method, out RpcMethod? method) || method is null)
         {
-            await PostResponse(new RpcResponse(
+            await PostResponse(new RpcEnvelope(
                 method: request.Method,
                 id: request.Id,
                 error: new RpcError(ErrorCodes.MethodNotFound, $"Method '{request.Method}' not found.")
@@ -117,19 +117,19 @@ public partial class MainWindow
             JsonElement? jsonResult = result is null
                 ? null
                 : JsonSerializer.SerializeToElement(result, result.GetType());
-            await PostResponse(new RpcResponse(request.Method, request.Id, jsonResult));
+            await PostResponse(new RpcEnvelope(request.Method, request.Id, jsonResult));
         }
         catch (OperationCanceledException)
         {
-            await PostResponse(new RpcResponse(request.Method, request.Id, new RpcError(ErrorCodes.Cancelled, "Request cancelled.")));
+            await PostResponse(new RpcEnvelope(request.Method, request.Id, new RpcError(ErrorCodes.Cancelled, "Request cancelled.")));
         }
         catch (Exception ex)
         {
-            await PostResponse(new RpcResponse(request.Method, request.Id, new RpcError(ErrorCodes.InternalError, ex.Message)));
+            await PostResponse(new RpcEnvelope(request.Method, request.Id, new RpcError(ErrorCodes.InternalError, ex.Message)));
         }
     }
 
-    private Task PostResponse(RpcResponse response)
+    private Task PostResponse(RpcEnvelope response)
     {
         string json = JsonSerializer.Serialize(response);
 

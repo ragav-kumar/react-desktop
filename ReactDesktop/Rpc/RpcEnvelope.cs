@@ -5,8 +5,7 @@ namespace ReactDesktop.Rpc;
 /// <summary>
 /// Response structure per JSON-RPC spec
 /// </summary>
-/// <typeparam name="T">Result type, determined by corresponding request</typeparam>
-public sealed record RpcResponse
+public sealed record RpcEnvelope
 {
     /// <summary>
     /// Mandatory, allows us to support push notifications. 
@@ -22,7 +21,7 @@ public sealed record RpcResponse
     /// <summary>If set, Result must be null.</summary>
     public RpcError? Error { get; }
 
-    public RpcResponse(string method, Guid? id, JsonElement? result)
+    public RpcEnvelope(string method, Guid? id, JsonElement? result)
     {
         Method = method;
         Id = id;
@@ -30,7 +29,7 @@ public sealed record RpcResponse
         Error = null;
     }
 
-    public RpcResponse(string method, Guid? id, RpcError? error)
+    public RpcEnvelope(string method, Guid? id, RpcError? error)
     {
         Method = method;
         Id = id;
