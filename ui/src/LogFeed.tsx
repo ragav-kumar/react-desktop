@@ -7,7 +7,7 @@ export const LogFeed = () => {
 
     const startListening = async () => {
         console.log('1');
-        await Api.StartListeningForLogLines();
+        Api.StartListeningForLogLines();
         console.log('2');
         setLogLines(await Api.GetLogLines(0, -1));
         console.log('3');

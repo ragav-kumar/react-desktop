@@ -14,39 +14,25 @@ public partial class MainWindow
     private bool _isUiReady;
 #pragma warning restore CS0414 // Field is assigned but its value is never used
     private readonly ApiState _state;
-    private readonly MethodRegistry _methods = new();
+    private readonly MethodRegistry _methods;
     
     private async Task InitializeApi()
     {
         // Just in case
         await WebView.EnsureCoreWebView2Async();
-        
-        RegisterMethods();
 
         WebView.CoreWebView2.WebMessageReceived += OnWebMessageReceived;
     }
 
-    private void RegisterMethods()
-    {
-        _methods.Add(Methods.UiReady, UiReady);
-        
-        _methods.Add(Methods.GetConnectionString, GetConnectionString);
-        _methods.Add<string>(Methods.SetConnectionString, SetConnectionString);
-        
-        _methods.Add<GetLogLinesParamsDto, string[]>(Methods.GetLogLines, GetLogLines);
-        _methods.Add<string>(Methods.WriteLogLine, WriteLogLine);
-        
-        _methods.Add(Methods.StartListeningForLogLines, StartListeningForLogLines);
-        _methods.Add(Methods.StopListeningForLogLines, StopListeningForLogLines);
-        _methods.Add(Methods.IsListeningForLogLineChanges, IsListeningForLogLineChanges);
-    }
-
+    [RpcNotification]
     private void UiReady(CancellationToken _) =>
         _isUiReady = true;
 
+    [RpcRequest]
     private Task<string?> GetConnectionString(CancellationToken _) =>
         Task.FromResult(_state.ConnectionString);
     
+    [RpcNotification]
     private void SetConnectionString(string connectionString, CancellationToken _)
     {
         _state.ConnectionString = connectionString;
@@ -61,9 +47,11 @@ public partial class MainWindow
         }
     }
 
+    [RpcRequest]
     private Task<string[]> GetLogLines(GetLogLinesParamsDto dto, CancellationToken _) =>
         Task.FromResult(LogFileApi.ReadLogLines(dto.Skip, dto.Take));
 
+    [RpcNotification]
     private void WriteLogLine(string message, CancellationToken _)
     {
         LogFileApi.WriteLine(message);
@@ -77,12 +65,15 @@ public partial class MainWindow
         }
     }
 
+    [RpcNotification]
     private void StartListeningForLogLines(CancellationToken _) =>
         _state.IsListeningForLogLineChanges = true;
     
+    [RpcNotification]
     private void StopListeningForLogLines(CancellationToken _) =>
         _state.IsListeningForLogLineChanges = false;
     
+    [RpcRequest]
     private Task<bool> IsListeningForLogLineChanges(CancellationToken _) =>
         Task.FromResult(_state.IsListeningForLogLineChanges);
 

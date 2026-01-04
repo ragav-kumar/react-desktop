@@ -2,6 +2,7 @@
 using System.Net.Http;
 using System.Windows;
 using Microsoft.Web.WebView2.Core;
+using ReactDesktop.Rpc;
 
 namespace ReactDesktop;
 
@@ -20,6 +21,7 @@ public partial class MainWindow
         InitializeComponent();
         
         _state = new ApiState(commandParams.ConnectionString);
+        _methods = new MethodRegistry(this);
 
         Loaded += OnLoaded;
     }

@@ -24,5 +24,6 @@ const callWithErrorHandling = async <TRequest, TResponse>(method: Method, args?:
         return await rpcClient.call(method, args);
     } catch (e) {
         alert(e);
+        throw e;
     }
 };
