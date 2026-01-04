@@ -1,4 +1,5 @@
-﻿using System.Reflection;
+﻿using System.CodeDom;
+using System.Reflection;
 using System.Text.Json;
 
 namespace ReactDesktop.Rpc;
@@ -69,37 +70,24 @@ public class MethodRegistry
                 throw new InvalidOperationException($"Method '{method.DeclaringType?.FullName}.{method.Name}' has multiple RPC attributes.");
             }
             
-            string rpcName = method.Name;
-            Type attributeType = attributes.Single()!.GetType();
-            _dict[rpcName] = ToRpcMethod(target, method, attributeType);
+            _dict[method.Name] = attributes.Single() switch
+            {
+                RpcRequestAttribute      => ToRpcRequestMethod(target, method),
+                RpcNotificationAttribute => ToRpcNotificationMethod(target, method),
+                RpcPushAttribute         => ToRpcPushMethod(target, method),
+                _                        => throw new InvalidOperationException("This should not be reachable.")
+            };
         }
     }
 
-    private RpcMethod ToRpcMethod(object target, MethodInfo methodInfo, Type attributeType)
+    private static RpcMethod ToRpcRequestMethod(object target, MethodInfo methodInfo)
     {
         MethodMetaData methodMeta = new(methodInfo);
-
-        // Ensure we've got a valid signature.
-        if (attributeType == typeof(RpcNotificationAttribute))
+        
+        // Validate that we return data.
+        if (!methodMeta.ReturnsGenericTask)
         {
-            // Validate that we don't return data.
-            if (methodMeta.ReturnsGenericTask)
-            {
-                throw new InvalidOperationException($"Notification method '{methodInfo.DeclaringType?.FullName}.{methodInfo.Name}' cannot return Task<T>.");
-            }
-        }
-        else if (attributeType == typeof(RpcRequestAttribute))
-        {
-            // Validate that we return data.
-            if (!methodMeta.ReturnsGenericTask)
-            {
-                throw new InvalidOperationException($"Request method '{methodInfo.DeclaringType?.FullName}.{methodInfo.Name}' must return Task<T>.");
-            }
-        }
-        else if (attributeType == typeof(RpcPushAttribute))
-        {
-            // TODO
-            throw new NotImplementedException();
+            throw new InvalidOperationException($"Request method '{methodInfo.DeclaringType?.FullName}.{methodInfo.Name}' must return Task<T>.");
         }
 
         Func<JsonElement?, CancellationToken, Task<object?>> invoker = methodMeta.HasParams
@@ -107,6 +95,56 @@ public class MethodRegistry
             : BuildInvokerWithoutParams(target, methodMeta);
         
         return methodMeta.ToRpcMethod(invoker);
+    }
+
+    private RpcMethod ToRpcNotificationMethod(object target, MethodInfo methodInfo)
+    {
+        MethodMetaData methodMeta = new(methodInfo);
+        
+        // Validate that we don't return data.
+        if (methodMeta.ReturnsGenericTask)
+        {
+            throw new InvalidOperationException($"Notification method '{methodInfo.DeclaringType?.FullName}.{methodInfo.Name}' cannot return Task<T>.");
+        }
+
+        Func<JsonElement?, CancellationToken, Task<object?>> invoker = methodMeta.HasParams
+            ? BuildInvokerWithParams(target, methodMeta)
+            : BuildInvokerWithoutParams(target, methodMeta);
+        
+        return methodMeta.ToRpcMethod(invoker);
+    }
+
+    private RpcMethod ToRpcPushMethod(object target, MethodInfo methodInfo)
+    {
+        // Fixed signature: (IRpcPublisher) => void
+        // MethodMeta would need to be reworked for this one, so let's just do it manually.
+        
+        ParameterInfo[] parameters = methodInfo.GetParameters();
+
+        if (parameters.Length != 1 || parameters[0].ParameterType != typeof(IRpcPublisher) || methodInfo.ReturnType != typeof(void))
+        {
+            throw new InvalidOperationException($"Push method '{methodInfo.DeclaringType?.FullName}.{methodInfo.Name}' must have signature (IRpcPublisher) => void.");
+        }
+
+        Func<JsonElement?, CancellationToken, Task<object?>> invoker = async (_, _) =>
+        {
+            // Discard result, Push methods are fire-and-forget.
+            object? _ = methodInfo.Invoke(target, [parameters[0]]);
+            return null;
+        };
+
+        return new RpcMethod
+        (
+            parameters[0].ParameterType,
+            typeof(void),
+            (_, _) =>
+            {
+                // Discard result, Push methods are fire-and-forget.
+                object? _ = methodInfo.Invoke(target, [parameters[0]]);
+                // To satisfy signature
+                return Task.FromResult<object?>(null);
+            }
+        );
     }
 
     private static Func<JsonElement?, CancellationToken, Task<object?>> BuildInvokerWithoutParams(object target, MethodMetaData methodMeta) =>

@@ -6,8 +6,8 @@ namespace ReactDesktop.Rpc;
 public class MethodMetaData
 {
     public MethodInfo Method { get; }
-    public Type ParamsType { get; private set; }
-    public Type ResultType { get; private set; }
+    public Type ParamsType { get; }
+    public Type ResultType { get; }
     public bool ReturnsTask { get; private set; }
     public bool ReturnsGenericTask { get; private set; }
 
@@ -16,60 +16,52 @@ public class MethodMetaData
     public MethodMetaData(MethodInfo method)
     {
         Method = method;
-        ExtractParamsType();
-        ExtractResultType();
+        ParamsType = ExtractParamsType();
+        ResultType = ExtractResultType();
     }
 
     public RpcMethod ToRpcMethod(Func<JsonElement?, CancellationToken, Task<object?>> invoke) => new(ParamsType, ResultType, invoke);
     
-    private void ExtractParamsType()
+    private Type ExtractParamsType()
     {
         ParameterInfo[] methodParams = Method.GetParameters();
-        
-        switch (methodParams.Length)
+
+        return methodParams.Length switch
         {
             // Params: (CancellationToken)
-            case 1 when methodParams[0].ParameterType == typeof(CancellationToken):
-                ParamsType = typeof(void);
-                return;
+            1 when methodParams[0].ParameterType == typeof(CancellationToken) => typeof(void),
             // Params: (TParams, CancellationToken)
-            case 2 when methodParams[1].ParameterType == typeof(CancellationToken):
-                ParamsType = methodParams[0].ParameterType;
-                return;
-            default:
-                throw new InvalidOperationException($"RPC handler '{Method.DeclaringType?.FullName}.{Method.Name}' must be (CancellationToken) or (TParams, CancellationToken).");
-        }
+            2 when methodParams[1].ParameterType == typeof(CancellationToken) => methodParams[0].ParameterType,
+            _ => throw new InvalidOperationException($"RPC handler '{Method.DeclaringType?.FullName}.{Method.Name}' must be (CancellationToken) or (TParams, CancellationToken).")
+        };
     }
     
-    private void ExtractResultType()
+    private Type ExtractResultType()
     {
         Type returnType = Method.ReturnType;
 
         // Notification
         if (returnType == typeof(void))
         {
-            ResultType = typeof(void);
             ReturnsTask = false;
             ReturnsGenericTask = false;
-            return;
+            return typeof(void);
         }
         
         // Async notification
         if (returnType == typeof(Task))
         {
-            ResultType = typeof(void);
             ReturnsTask = true;
             ReturnsGenericTask = false;
-            return;
+            return typeof(void);
         }
 
         // Request (always async)
         if (returnType.IsGenericType && returnType.GetGenericTypeDefinition() == typeof(Task<>))
         {
-            ResultType = returnType.GetGenericArguments()[0];
             ReturnsTask = true;
             ReturnsGenericTask = true;
-            return;
+            return returnType.GetGenericArguments()[0];
         }
 
         throw new InvalidOperationException(
