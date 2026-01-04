@@ -56,28 +56,31 @@ public class MethodRegistry
             
             RpcRequestAttribute? rpcMethodAttribute = method.GetCustomAttribute<RpcRequestAttribute>(inherit: true);
             RpcNotificationAttribute? rpcNotificationAttribute = method.GetCustomAttribute<RpcNotificationAttribute>(inherit: true);
-            if (rpcMethodAttribute is null && rpcNotificationAttribute is null)
+            RpcPushAttribute? rpcPushAttribute = method.GetCustomAttribute<RpcPushAttribute>(inherit: true);
+
+            List<object?> attributes = new object?[]{rpcPushAttribute, rpcNotificationAttribute, rpcMethodAttribute}.Where(a => a is not null).ToList();
+            int count = attributes.Count;
+            if (count == 0)
             {
                 continue;
             }
-
-            if (rpcMethodAttribute is not null && rpcNotificationAttribute is not null)
+            if (count > 1)
             {
-                throw new InvalidOperationException("A method cannot be both a notification and a request.");
+                throw new InvalidOperationException($"Method '{method.DeclaringType?.FullName}.{method.Name}' has multiple RPC attributes.");
             }
             
-            bool isNotification = rpcNotificationAttribute is not null;
             string rpcName = method.Name;
-            _dict[rpcName] = ToRpcMethod(target, method, isNotification);
+            Type attributeType = attributes.Single()!.GetType();
+            _dict[rpcName] = ToRpcMethod(target, method, attributeType);
         }
     }
 
-    private RpcMethod ToRpcMethod(object target, MethodInfo methodInfo, bool isNotification)
+    private RpcMethod ToRpcMethod(object target, MethodInfo methodInfo, Type attributeType)
     {
         MethodMetaData methodMeta = new(methodInfo);
 
         // Ensure we've got a valid signature.
-        if (isNotification)
+        if (attributeType == typeof(RpcNotificationAttribute))
         {
             // Validate that we don't return data.
             if (methodMeta.ReturnsGenericTask)
@@ -85,13 +88,18 @@ public class MethodRegistry
                 throw new InvalidOperationException($"Notification method '{methodInfo.DeclaringType?.FullName}.{methodInfo.Name}' cannot return Task<T>.");
             }
         }
-        else
+        else if (attributeType == typeof(RpcRequestAttribute))
         {
             // Validate that we return data.
             if (!methodMeta.ReturnsGenericTask)
             {
                 throw new InvalidOperationException($"Request method '{methodInfo.DeclaringType?.FullName}.{methodInfo.Name}' must return Task<T>.");
             }
+        }
+        else if (attributeType == typeof(RpcPushAttribute))
+        {
+            // TODO
+            throw new NotImplementedException();
         }
 
         Func<JsonElement?, CancellationToken, Task<object?>> invoker = methodMeta.HasParams

@@ -15,6 +15,9 @@ public partial class MainWindow
 #pragma warning restore CS0414 // Field is assigned but its value is never used
     private readonly ApiState _state;
     private readonly MethodRegistry _methods;
+
+    // Push notification events (Only one in this example, have to make a separate one for each kind of push)
+    private event Action<string?> LogLineWritten;
     
     private async Task InitializeApi()
     {
@@ -36,15 +39,8 @@ public partial class MainWindow
     private void SetConnectionString(string connectionString, CancellationToken _)
     {
         _state.ConnectionString = connectionString;
-        if (_state.IsListeningForLogLineChanges)
-        {
-            string message = LogFileApi.ReadAllLogLines().Last();
-            PostResponse(new RpcEnvelope(
-                method: Methods.LogLinesPushNotification,
-                id: null,
-                result: JsonSerializer.SerializeToElement(message)
-            ));
-        }
+        string message = LogFileApi.ReadAllLogLines().Last();
+        LogLineWritten.Invoke(message);
     }
 
     [RpcRequest]
@@ -55,14 +51,7 @@ public partial class MainWindow
     private void WriteLogLine(string message, CancellationToken _)
     {
         LogFileApi.WriteLine(message);
-        if (_state.IsListeningForLogLineChanges)
-        {
-            PostResponse(new RpcEnvelope(
-                method: Methods.LogLinesPushNotification,
-                id: null,
-                result: JsonSerializer.SerializeToElement(message)
-            ));
-        }
+        LogLineWritten.Invoke(message);
     }
 
     [RpcNotification]
@@ -76,6 +65,20 @@ public partial class MainWindow
     [RpcRequest]
     private Task<bool> IsListeningForLogLineChanges(CancellationToken _) =>
         Task.FromResult(_state.IsListeningForLogLineChanges);
+
+    [RpcPush]
+    private void LogLinesPushNotification(IRpcPublisher publisher)
+    {
+        LogLineWritten += message =>
+        {
+            if (!_state.IsListeningForLogLineChanges)
+            {
+                return;
+            }
+            
+            _ = publisher.NotifyAsync(nameof(LogLinesPushNotification), message);
+        };
+    }
 
     private void OnWebMessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
     {
