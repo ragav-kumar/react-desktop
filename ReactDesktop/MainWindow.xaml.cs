@@ -21,7 +21,7 @@ public partial class MainWindow
         InitializeComponent();
         
         _state = new ApiState(commandParams.ConnectionString);
-        _methods = new MethodRegistry(this);
+        _methods = new MethodRegistry(new RpcPublisher(PostResponse), this);
 
         Loaded += OnLoaded;
     }

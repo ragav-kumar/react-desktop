@@ -33,7 +33,7 @@ export const LogFeed = () => {
     }, []);
 
     return (
-        <div>
+        <div className='logColumn'>
             <div className='buttonBar'>
                 <button onClick={startListening}>
                     Start listening for log changes
@@ -42,7 +42,7 @@ export const LogFeed = () => {
                     Stop listening to log changes
                 </button>
             </div>
-            <pre>
+            <pre className='logFeed'>
                 {logLines.map((line, i) => (
                     <div key={i}>
                         {line}

@@ -67,7 +67,7 @@ public partial class MainWindow
         Task.FromResult(_state.IsListeningForLogLineChanges);
 
     [RpcPush]
-    private void LogLinesPushNotification(IRpcPublisher publisher)
+    private void LogLinesPushNotification(RpcPublisher publisher)
     {
         LogLineWritten += message =>
         {

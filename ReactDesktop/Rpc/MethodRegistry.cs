@@ -6,6 +6,7 @@ namespace ReactDesktop.Rpc;
 
 public class MethodRegistry
 {
+    private RpcPublisher _publisher;
     private readonly Dictionary<string, RpcMethod> _dict = new();
 
     public RpcMethod this[string name]
@@ -15,11 +16,12 @@ public class MethodRegistry
     }
 
     // Empty constructor because I want to be able to loop registration across multiple classes if needed.
-    public MethodRegistry()
+    public MethodRegistry(RpcPublisher publisher)
     {
+        _publisher = publisher;
     }
 
-    public MethodRegistry(object target)
+    public MethodRegistry(RpcPublisher publisher, object target) : this(publisher)
     {
         RegisterMethods(target);
     }
@@ -69,14 +71,19 @@ public class MethodRegistry
             {
                 throw new InvalidOperationException($"Method '{method.DeclaringType?.FullName}.{method.Name}' has multiple RPC attributes.");
             }
-            
-            _dict[method.Name] = attributes.Single() switch
+
+            switch (attributes.Single())
             {
-                RpcRequestAttribute      => ToRpcRequestMethod(target, method),
-                RpcNotificationAttribute => ToRpcNotificationMethod(target, method),
-                RpcPushAttribute         => ToRpcPushMethod(target, method),
-                _                        => throw new InvalidOperationException("This should not be reachable.")
-            };
+                case RpcRequestAttribute:
+                    _dict[method.Name] = ToRpcRequestMethod(target, method);
+                    break;
+                case RpcNotificationAttribute:
+                    _dict[method.Name] = ToRpcNotificationMethod(target, method);
+                    break;
+                case RpcPushAttribute:
+                    WireUpRpcPushMethod(target, method);
+                    break;
+            }
         }
     }
 
@@ -97,7 +104,7 @@ public class MethodRegistry
         return methodMeta.ToRpcMethod(invoker);
     }
 
-    private RpcMethod ToRpcNotificationMethod(object target, MethodInfo methodInfo)
+    private static RpcMethod ToRpcNotificationMethod(object target, MethodInfo methodInfo)
     {
         MethodMetaData methodMeta = new(methodInfo);
         
@@ -114,37 +121,19 @@ public class MethodRegistry
         return methodMeta.ToRpcMethod(invoker);
     }
 
-    private RpcMethod ToRpcPushMethod(object target, MethodInfo methodInfo)
+    private void WireUpRpcPushMethod(object target, MethodInfo methodInfo)
     {
         // Fixed signature: (IRpcPublisher) => void
         // MethodMeta would need to be reworked for this one, so let's just do it manually.
         
         ParameterInfo[] parameters = methodInfo.GetParameters();
 
-        if (parameters.Length != 1 || parameters[0].ParameterType != typeof(IRpcPublisher) || methodInfo.ReturnType != typeof(void))
+        if (parameters.Length != 1 || parameters[0].ParameterType != typeof(RpcPublisher) || methodInfo.ReturnType != typeof(void))
         {
             throw new InvalidOperationException($"Push method '{methodInfo.DeclaringType?.FullName}.{methodInfo.Name}' must have signature (IRpcPublisher) => void.");
         }
 
-        Func<JsonElement?, CancellationToken, Task<object?>> invoker = async (_, _) =>
-        {
-            // Discard result, Push methods are fire-and-forget.
-            object? _ = methodInfo.Invoke(target, [parameters[0]]);
-            return null;
-        };
-
-        return new RpcMethod
-        (
-            parameters[0].ParameterType,
-            typeof(void),
-            (_, _) =>
-            {
-                // Discard result, Push methods are fire-and-forget.
-                object? _ = methodInfo.Invoke(target, [parameters[0]]);
-                // To satisfy signature
-                return Task.FromResult<object?>(null);
-            }
-        );
+        methodInfo.Invoke(target, [_publisher]);
     }
 
     private static Func<JsonElement?, CancellationToken, Task<object?>> BuildInvokerWithoutParams(object target, MethodMetaData methodMeta) =>
